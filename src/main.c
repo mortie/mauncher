@@ -22,6 +22,8 @@ static int strs_compare(const void *aptr, const void *bptr, void *data) {
 }
 
 static ssize_t lookup(const char *prefix, struct context *ctx) {
+	if (prefix[0] == '\0')
+		return 0;
 	if (ctx->strs_len == 0)
 		return -1;
 
@@ -112,25 +114,27 @@ void draw_list(struct context *ctx) {
 	g_list_free(children);
 
 	// Draw new children
-	if (ctx->view >= 0) {
-		for (ssize_t i = ctx->view; i < ctx->view + 30; ++i) {
-			if (i >= (ssize_t)ctx->strs_len)
-				break;
+	ssize_t view = ctx->view;
+	if (view < 0)
+		view = 0;
 
-			GtkWidget *label;
-			if (i == ctx->cursor) {
-				char *str = g_markup_printf_escaped(
-						"<span foreground=\"red\">%s</span>", ctx->data + ctx->strs[i]);
-				label = gtk_label_new("");
-				gtk_label_set_markup(GTK_LABEL(label), str);
-			} else {
-				label = gtk_label_new(ctx->data + ctx->strs[i]);
-			}
-			gtk_container_add(GTK_CONTAINER(ctx->container), label);
+	for (ssize_t i = view; i < view + 30; ++i) {
+		if (i >= (ssize_t)ctx->strs_len)
+			break;
+
+		GtkWidget *label;
+		if (i == ctx->cursor) {
+			char *str = g_markup_printf_escaped(
+					"<span foreground=\"red\">%s</span>", ctx->data + ctx->strs[i]);
+			label = gtk_label_new("");
+			gtk_label_set_markup(GTK_LABEL(label), str);
+		} else {
+			label = gtk_label_new(ctx->data + ctx->strs[i]);
 		}
-
-		gtk_widget_show_all(ctx->container);
+		gtk_container_add(GTK_CONTAINER(ctx->container), label);
 	}
+
+	gtk_widget_show_all(ctx->container);
 }
 
 static gboolean on_enter(GtkEntry *entry, void *data) {
@@ -229,6 +233,7 @@ static void activate(GtkApplication *app, void *data) {
 	ctx->container = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
 	gtk_container_add(GTK_CONTAINER(box), ctx->container);
 
+	draw_list(ctx);
 	gtk_widget_show_all(win);
 	gtk_window_present(GTK_WINDOW(win));
 }
@@ -236,8 +241,8 @@ static void activate(GtkApplication *app, void *data) {
 int main(int argc, char **argv) {
 	struct context ctx;
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.cursor = -1;
-	ctx.view = -1;
+	ctx.cursor = 0;
+	ctx.view = 0;
 
 	if (read_input(&ctx, stdin) < 0)
 		return EXIT_FAILURE;
