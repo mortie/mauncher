@@ -15,4 +15,4 @@ can use `dmenu_path | mauncher | sh` to use mauncher as a launcher.
 
 You should check out [mmenu](https://github.com/mortie/mmenu) to add a
 python-based calculator. Since Mauncher works like dmenu, it works jus fine
-with `mmenu mauncher`
+with `mmenu mauncher`.
