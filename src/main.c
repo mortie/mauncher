@@ -155,11 +155,9 @@ static gboolean on_keyboard(GtkWidget *widget, GdkEventKey *event, void *data) {
 
 	if (event->keyval == GDK_KEY_Escape) {
 		g_application_quit(G_APPLICATION(ctx->app));
-	} else if (event->keyval == GDK_KEY_Left && ctx->cursor >= 0) {
+	} else if (event->keyval == GDK_KEY_Left && ctx->cursor > ctx->view) {
 		if (ctx->cursor > 0)
 			ctx->cursor -= 1;
-		if (ctx->cursor < ctx->view)
-			ctx->view = ctx->cursor;
 		draw_list(ctx);
 	} else if (event->keyval == GDK_KEY_Right && ctx->cursor >= 0) {
 		if (ctx->cursor < (ssize_t)ctx->strs_len - 1)
