@@ -244,9 +244,10 @@ static void activate(GtkApplication *app, void *data) {
 	ctx->container = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
 	gtk_container_add(GTK_CONTAINER(box), ctx->container);
 
-	draw_list(ctx);
 	gtk_widget_show_all(win);
 	gtk_window_present(GTK_WINDOW(win));
+
+	draw_list(ctx);
 }
 
 int main(int argc, char **argv) {
