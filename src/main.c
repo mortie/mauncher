@@ -12,6 +12,10 @@ struct context {
 	size_t strs_len;
 	ssize_t cursor;
 	ssize_t view;
+
+	struct opts {
+		gchar *prompt;
+	} opts;
 };
 
 static int strs_compare(const void *aptr, const void *bptr, void *data) {
@@ -138,7 +142,7 @@ void draw_list(struct context *ctx) {
 static gboolean on_enter(GtkEntry *entry, void *data) {
 	struct context *ctx = (struct context *)data;
 
-	if (ctx->cursor >= 0)
+	if (ctx->cursor >= 0 && ctx->cursor < (ssize_t)ctx->strs_len)
 		puts(ctx->data + ctx->strs[ctx->cursor]);
 	else
 		puts(gtk_entry_get_text(entry));
@@ -196,6 +200,9 @@ static void activate(GtkApplication *app, void *data) {
 	struct context *ctx = (struct context *)data;
 	GtkWidget *win = gtk_application_window_new(ctx->app);
 
+	if (read_input(ctx, stdin) < 0)
+		g_application_quit(G_APPLICATION(ctx->app));
+
 	gtk_window_set_title(GTK_WINDOW(win), "Mauncher");
 	gtk_window_set_decorated(GTK_WINDOW(win), FALSE);
 
@@ -217,8 +224,13 @@ static void activate(GtkApplication *app, void *data) {
 	 * Populate window
 	 */
 
-	GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+	GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
 	gtk_container_add(GTK_CONTAINER(win), box);
+
+	if (ctx->opts.prompt) {
+		GtkWidget *prompt = gtk_label_new(ctx->opts.prompt);
+		gtk_container_add(GTK_CONTAINER(box), prompt);
+	}
 
 	GtkWidget *input = gtk_entry_new();
 	gtk_entry_set_placeholder_text(GTK_ENTRY(input), "Search...");
@@ -242,10 +254,16 @@ int main(int argc, char **argv) {
 	ctx.cursor = 0;
 	ctx.view = 0;
 
-	if (read_input(&ctx, stdin) < 0)
-		return EXIT_FAILURE;
+	GOptionEntry optents[] = {
+		{
+			"prompt", 'p', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &ctx.opts.prompt,
+			"The prompt to be displayed left of the input field", NULL,
+		},
+		{ 0 },
+	};
 
 	ctx.app = gtk_application_new("coffee.mort.mauncher", G_APPLICATION_NON_UNIQUE);
+	g_application_add_main_option_entries(G_APPLICATION(ctx.app), optents);
 
 	g_signal_connect(ctx.app, "activate", G_CALLBACK(activate), &ctx);
 	int status = g_application_run(G_APPLICATION(ctx.app), argc, argv);
