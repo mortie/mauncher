@@ -1,0 +1,10 @@
+PROJNAME = mauncher
+PKGS = gtk+-3.0 wayland-client
+
+CCOPTS += -D_GNU_SOURCE -Igtk-layer-shell/usr/include
+LDOPTS += -lpthread -Lgtk-layer-shell/usr/lib/ -lgtk-layer-shell
+$(SRCS): gtk-layer-shell/usr/lib/libgtk-layer-shell.a
+
+gtk-layer-shell/usr/lib/libgtk-layer-shell.a:
+	[ -f gtk-layer-shell/.git ] || git submodule update --init gtk-layer-shell
+	(cd gtk-layer-shell && ./autogen.sh && $(MAKE) && $(MAKE) install DESTDIR=`pwd` prefix=/usr)
