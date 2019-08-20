@@ -224,10 +224,11 @@ static void activate(GtkApplication *app, void *data) {
 	 * Populate window
 	 */
 
-	GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+	GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
 	gtk_container_add(GTK_CONTAINER(win), box);
 
 	if (ctx->opts.prompt) {
+		gtk_widget_set_margin_start(box, 8);
 		GtkWidget *prompt = gtk_label_new(ctx->opts.prompt);
 		gtk_container_add(GTK_CONTAINER(box), prompt);
 	}
