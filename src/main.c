@@ -114,24 +114,22 @@ void draw_list(struct context *ctx) {
 	g_list_free(children);
 
 	// Draw new children
-	ssize_t view = ctx->view;
-	if (view < 0)
-		view = 0;
+	if (ctx->cursor >= 0) {
+		for (ssize_t i = ctx->view; i < ctx->view + 30; ++i) {
+			if (i >= (ssize_t)ctx->strs_len)
+				break;
 
-	for (ssize_t i = view; i < view + 30; ++i) {
-		if (i >= (ssize_t)ctx->strs_len)
-			break;
-
-		GtkWidget *label;
-		if (i == ctx->cursor) {
-			char *str = g_markup_printf_escaped(
-					"<span foreground=\"red\">%s</span>", ctx->data + ctx->strs[i]);
-			label = gtk_label_new("");
-			gtk_label_set_markup(GTK_LABEL(label), str);
-		} else {
-			label = gtk_label_new(ctx->data + ctx->strs[i]);
+			GtkWidget *label;
+			if (i == ctx->cursor) {
+				char *str = g_markup_printf_escaped(
+						"<span foreground=\"red\">%s</span>", ctx->data + ctx->strs[i]);
+				label = gtk_label_new("");
+				gtk_label_set_markup(GTK_LABEL(label), str);
+			} else {
+				label = gtk_label_new(ctx->data + ctx->strs[i]);
+			}
+			gtk_container_add(GTK_CONTAINER(ctx->container), label);
 		}
-		gtk_container_add(GTK_CONTAINER(ctx->container), label);
 	}
 
 	gtk_widget_show_all(ctx->container);
