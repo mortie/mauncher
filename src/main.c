@@ -49,12 +49,12 @@ static ssize_t lookup(const char *prefix, struct context *ctx) {
 				break;
 			}
 		} else if (ret < 0) {
-			start = index;
+			start = index + 1;
 		} else {
-			end = index;
+			end = index - 1;
 		}
 
-		if (end <= start + 1)
+		if (end < start)
 			return -1;
 	}
 
