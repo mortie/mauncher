@@ -12,9 +12,11 @@ struct context {
 	size_t strs_len;
 	ssize_t cursor;
 	ssize_t view;
+	int (*strncmp)(const char *a, const char *b, size_t n);
 
 	struct opts {
 		gchar *prompt;
+		gboolean insensitive;
 	} opts;
 };
 
@@ -23,6 +25,13 @@ static int strs_compare(const void *aptr, const void *bptr, void *data) {
 	int *a = (int *)aptr;
 	int *b = (int *)bptr;
 	return strcmp(ctx->data + *a, ctx->data + *b);
+}
+
+static int strs_case_compare(const void *aptr, const void *bptr, void *data) {
+	struct context *ctx = (struct context *)data;
+	int *a = (int *)aptr;
+	int *b = (int *)bptr;
+	return strcasecmp(ctx->data + *a, ctx->data + *b);
 }
 
 static ssize_t lookup(const char *prefix, struct context *ctx) {
@@ -41,9 +50,9 @@ static ssize_t lookup(const char *prefix, struct context *ctx) {
 		index = start + (end - start) / 2;
 		char *str = ctx->data + ctx->strs[index];
 
-		int ret = strncmp(str, prefix, pfxlen);
+		int ret = ctx->strncmp(str, prefix, pfxlen);
 		if (ret == 0) {
-			if (index > 0 && strncmp(ctx->data + ctx->strs[index - 1], prefix, pfxlen) == 0) {
+			if (index > 0 && ctx->strncmp(ctx->data + ctx->strs[index - 1], prefix, pfxlen) == 0) {
 				end = index;
 			} else {
 				break;
@@ -105,7 +114,10 @@ static int read_input(struct context *ctx, FILE *f) {
 		}
 	}
 
-	qsort_r(ctx->strs, ctx->strs_len, sizeof(*ctx->strs), strs_compare, ctx);
+	if (ctx->opts.insensitive)
+		qsort_r(ctx->strs, ctx->strs_len, sizeof(*ctx->strs), strs_case_compare, ctx);
+	else
+		qsort_r(ctx->strs, ctx->strs_len, sizeof(*ctx->strs), strs_compare, ctx);
 
 	return 0;
 }
@@ -146,6 +158,7 @@ static gboolean on_enter(GtkEntry *entry, void *data) {
 		puts(ctx->data + ctx->strs[ctx->cursor]);
 	else
 		puts(gtk_entry_get_text(entry));
+
 	g_application_quit(G_APPLICATION(ctx->app));
 	return FALSE;
 }
@@ -196,6 +209,9 @@ static GdkMonitor *get_monitor(GdkDisplay *disp) {
 
 static void activate(GtkApplication *app, void *data) {
 	struct context *ctx = (struct context *)data;
+	if (ctx->opts.insensitive)
+		ctx->strncmp = &strncasecmp;
+
 	GtkWidget *win = gtk_application_window_new(ctx->app);
 
 	if (read_input(ctx, stdin) < 0)
@@ -253,11 +269,15 @@ int main(int argc, char **argv) {
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.cursor = 0;
 	ctx.view = 0;
+	ctx.strncmp = &strncmp;
 
 	GOptionEntry optents[] = {
 		{
 			"prompt", 'p', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &ctx.opts.prompt,
 			"The prompt to be displayed left of the input field", NULL,
+		}, {
+			"insensitive", 'i', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &ctx.opts.insensitive,
+			"Match case-insensitive", NULL,
 		},
 		{ 0 },
 	};
