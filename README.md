@@ -5,6 +5,25 @@ scaling.
 
 ![Screenshot](https://raw.githubusercontent.com/mortie/mauncher/master/screenshot.png)
 
+## Installation
+
+### From Package
+
+The [mauncher-git](https://aur.archlinux.org/packages/mauncher-git/) package is
+available for Arch Linux.
+
+### Compiling From Source
+
+Run `make` to compile, `sudo make install` to install, and `sudo make uninstall`
+to uninstall.
+
+Dependencies:
+
+* meson
+* git
+* gtk3
+* gobject-introspection
+
 ## Usage
 
 Mauncher works like dmenu; give it a newline-separated list of strings on
