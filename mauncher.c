@@ -63,7 +63,7 @@ static ssize_t lookup(const char *prefix, struct context *ctx) {
 			end = index - 1;
 		}
 
-		if (end < start)
+		if (end < start || end == 0)
 			return -1;
 	}
 
