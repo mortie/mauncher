@@ -9,7 +9,7 @@ gtk-layer-shell/usr/lib/libgtk-layer-shell.a:
 	[ -f gtk-layer-shell/.git ] || git submodule update --init gtk-layer-shell
 	(cd gtk-layer-shell && \
 		LDFLAGS= CFLAGS= CPPFLAGS= meson build --prefix /usr -Ddefault_library=static && \
-		ninja -C build && \
+		LDFLAGS= CFLAGS= CPPFLAGS= ninja -C build && \
 		DESTDIR=`pwd` ninja -C build install)
 
 .PHONY: clean
