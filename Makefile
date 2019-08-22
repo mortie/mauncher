@@ -2,7 +2,7 @@ CFLAGS += -D_GNU_SOURCE -O2 -Igtk-layer-shell/usr/include $(shell pkg-config --c
 LDFLAGS += -Wl,--no-as-needed -lpthread $(shell pkg-config --libs gtk+-3.0 wayland-client)
 PREFIX ?= /usr/local
 
-all: mauncher
+all: mauncher mauncher-launcher
 mauncher mauncher.c: gtk-layer-shell/usr/lib/libgtk-layer-shell.a
 
 gtk-layer-shell/usr/lib/libgtk-layer-shell.a:
@@ -14,18 +14,20 @@ gtk-layer-shell/usr/lib/libgtk-layer-shell.a:
 
 .PHONY: clean
 clean:
-	rm -f mauncher
+	rm -f mauncher mauncher-launcher
 
 .PHONY: cleanall
 cleanall: clean
 	rm -rf gtk-layer-shell
 
 .PHONY: install
-install: mauncher
+install: mauncher mauncher-launcher
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	cp -f $^ $(DESTDIR)$(PREFIX)/bin
 	chmod 755 $(DESTDIR)$(PREFIX)/bin/mauncher
+	chmod 755 $(DESTDIR)$(PREFIX)/bin/mauncher-launcher
 
 .PHONY: uninstall
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/mauncher
+	rm -f $(DESTDIR)$(PREFIX)/bin/mauncher-launcher
