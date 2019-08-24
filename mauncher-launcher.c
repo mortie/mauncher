@@ -5,6 +5,228 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+// not const because bleh, execvp takes pointers to non-const
+static char *pystring =
+	"import sys, os, math\n"
+	"from math import (ceil, floor, log, log10, pow, sqrt,\n"
+	"    cos, sin, tan, acos, asin, atan, atan2, hypot, degrees, radians,\n"
+	"    pi, e)\n"
+	""
+	"ans = 0\n"
+	"if os.getenv('PY_ANS') != None:\n"
+	"    try: ans = eval(os.getenv('PY_ANS'))\n"
+	"    except: pass\n"
+	""
+	"def digit_to_char(digit):\n"
+	"    if digit < 10:\n"
+	"        return str(digit)\n"
+	"    return chr(ord('a') + digit - 10)\n"
+	""
+	"def base(num, b=16):\n"
+	"    if num < 0:\n"
+	"        return '-' + base(-num, b)\n"
+	"    (d, m) = divmod(num, b)\n"
+	"    if d > 0:\n"
+	"        return base(d, b) + digit_to_char(m)\n"
+	"    return digit_to_char(m)\n"
+	""
+	"def solve(s):\n"
+	"    try:\n"
+	"        from sympy.parsing.sympy_parser import (\n"
+	"            parse_expr, standard_transformations, implicit_multiplication)\n"
+	"        from sympy import Eq, solve\n"
+	"    except ImportError:\n"
+	"        return 'Missing sympy module.'\n"
+	""
+	"    transformations = (\n"
+	"        standard_transformations + (\n"
+	"        implicit_multiplication,))\n"
+	""
+	"    parts = s.split('=')\n"
+	"    part1 = parse_expr(parts[0], transformations=transformations)\n"
+	"    part2 = parse_expr(parts[1], transformations=transformations)\n"
+	""
+	"    r = (solve(Eq(part1, part2)))\n"
+	"    if len(r) == 1:\n"
+	"        return r[0]\n"
+	"    else:\n"
+	"        return r\n"
+	""
+	"res = ''\n"
+	"try:\n"
+	"    res = eval(os.getenv('PY_EXPR'))\n"
+	"except Exception as e:\n"
+	"    res = 'Exception'\n"
+	"    sys.stderr.write(str(e)+'\\n')\n"
+	"\n"
+	"print('{!r}'.format(res))\n";
+
+char *readall(int fd, size_t *len) {
+		char buf[512];
+		size_t size = 512;
+		*len = 0;
+		char *mem = malloc(size);
+
+		while (1) {
+			ssize_t l = read(fd, buf, sizeof(buf));
+			if (l < 0) {
+				perror("read");
+				free(mem);
+				return NULL;
+			} else if (l == 0) {
+				break;
+			}
+
+			if (*len + l >= size - 1) {
+				size *= 2;
+				mem = realloc(mem, size);
+			}
+
+			memcpy(mem + *len, buf, l);
+			*len += l;
+		}
+
+		mem[*len] = '\0';
+
+		return mem;
+}
+
+int calculator(char *str, char *ans);
+
+int calculator_menu(char *answer) {
+	int infds[2];
+	int outfds[2];
+
+	if (pipe(infds) < 0) {
+		perror("pipe");
+		return EXIT_FAILURE;
+	}
+
+	if (pipe(outfds) < 0) {
+		close(infds[0]);
+		close(outfds[0]);
+		perror("pipe");
+		return EXIT_FAILURE;
+	}
+
+	pid_t child = fork();
+	if (child < 0) {
+		perror("fork");
+		close(infds[0]);
+		close(outfds[0]);
+		return EXIT_FAILURE;
+	}
+
+	if (child == 0) {
+		close(infds[1]);
+		close(outfds[0]);
+		dup2(infds[0], STDIN_FILENO);
+		dup2(outfds[1], STDOUT_FILENO);
+		if (execvp("mauncher", (char *const[]) { "mauncher", "-p", answer, NULL }) < 0) {
+			perror("execvp");
+			exit(EXIT_FAILURE);
+		}
+	} else {
+		close(infds[0]);
+		close(outfds[1]);
+
+		write(infds[1], "$\n", 2);
+		close(infds[1]);
+
+		size_t len;
+		char *expr = readall(outfds[0], &len);
+		close(outfds[0]);
+		if (expr == NULL)
+			return EXIT_FAILURE;
+
+		int status;
+		if (waitpid(child, &status, 0) < 0) {
+			perror("wait");
+			free(expr);
+			return EXIT_FAILURE;
+		}
+
+		if (WIFEXITED(status) && WEXITSTATUS(status) != EXIT_SUCCESS) {
+			free(expr);
+			return WEXITSTATUS(status);
+		} else if (WIFSIGNALED(status)) {
+			free(expr);
+			return WSTOPSIG(status) + 128;
+		}
+
+		if (strcmp(expr, "$\n") == 0) {
+			free(expr);
+			return EXIT_SUCCESS;
+		} else {
+			calculator(expr, answer);
+			free(expr);
+		}
+	}
+}
+
+int calculator(char *str, char *ans) {
+	int fds[2];
+	if (pipe(fds) < 0) {
+		perror("pipe");
+		return EXIT_FAILURE;
+	}
+
+	setenv("PY_EXPR", str, 1);
+	if (ans != NULL)
+		setenv("PY_ANS", ans, 1);
+
+	pid_t child = fork();
+	if (child < 0) {
+		perror("fork");
+		return EXIT_FAILURE;
+	}
+
+	if (child == 0) {
+		close(fds[0]);
+		dup2(fds[1], STDOUT_FILENO);
+		if (execvp("python3", (char *const[]) { "python3", "-c", pystring, NULL }) < 0) {
+			perror("execvp");
+			exit(EXIT_FAILURE);
+		}
+	} else {
+		close(fds[1]);
+		size_t len;
+		char *output = readall(fds[0], &len);
+		close(fds[0]);
+		if (output == NULL)
+			return EXIT_FAILURE;
+
+		int status;
+		if (waitpid(child, &status, 0) < 0) {
+			perror("wait");
+			free(output);
+			return EXIT_FAILURE;
+		}
+
+		if (WIFEXITED(status) && WEXITSTATUS(status) != EXIT_SUCCESS) {
+			free(output);
+			return WEXITSTATUS(status);
+		} else if (WIFSIGNALED(status)) {
+			free(output);
+			return WSTOPSIG(status) + 128;
+		}
+
+		int ret = calculator_menu(output);
+		free(output);
+		return ret;
+	}
+}
+
+int launch(char *str) {
+	int ret = system(str);
+	if (ret < 0) {
+		perror("system");
+		return EXIT_FAILURE;
+	} else {
+		return ret;
+	}
+}
+
 int main(int argc, char **argv) {
 	FILE *paths = popen("dmenu_path", "r");
 	if (paths == NULL) {
@@ -30,46 +252,41 @@ int main(int argc, char **argv) {
 		close(fds[0]);
 		dup2(fileno(paths), STDIN_FILENO);
 		dup2(fds[1], STDOUT_FILENO);
-		if (execv("mauncher", (char *[]) { "mauncher", NULL }) < 0) {
-			perror("execv");
-			return EXIT_FAILURE;
+		if (execvp("mauncher", (char *[]) { "mauncher", NULL }) < 0) {
+			perror("execvp");
+			exit(EXIT_FAILURE);
 		}
 	} else {
 		close(fds[1]);
+		size_t len;
+		char *output = readall(fds[0], &len);
+		close(fds[0]);
+		if (output == NULL)
+			return EXIT_FAILURE;
+
 		int status;
 		if (waitpid(child, &status, 0) < 0) {
 			perror("wait");
+			free(output);
 			return EXIT_FAILURE;
 		}
 
-		if (WIFEXITED(status) && WEXITSTATUS(status) != EXIT_SUCCESS)
+		if (WIFEXITED(status) && WEXITSTATUS(status) != EXIT_SUCCESS) {
+			free(output);
 			return WEXITSTATUS(status);
-		else if (WIFSIGNALED(status))
+		} else if (WIFSIGNALED(status)) {
+			free(output);
 			return WSTOPSIG(status) + 128;
-
-		char buf[512];
-		size_t mem_size = 512;
-		size_t mem_len = 0;
-		char *mem = malloc(mem_size);
-		while (1) {
-			ssize_t len = read(fds[0], buf, sizeof(buf));
-			if (len < 0) {
-				perror("read");
-				return EXIT_FAILURE;
-			} else if (len == 0) {
-				break;
-			}
-
-			if (mem_len + len >= mem_size) {
-				mem_size *= 2;
-				mem = realloc(mem, mem_size);
-			}
-
-			memcpy(mem + mem_len, buf, len);
-			mem_len += len;
 		}
 
-		printf("Got output: %.*s\n", mem_len, mem);
+		int ret;
+		if (output[0] == '=' || output[0] == '@')
+			ret = calculator(output + 1, NULL);
+		else
+			ret = launch(output);
+
+		free(output);
+		return ret;
 	}
 
 	return EXIT_SUCCESS;
