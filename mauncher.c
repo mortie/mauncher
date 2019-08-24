@@ -243,6 +243,17 @@ static void activate(GtkApplication *app, void *data) {
 
 	if (ctx->opts.prompt) {
 		gtk_widget_set_margin_start(box, 8);
+
+		// Only show one line
+		char *c = ctx->opts.prompt;
+		while (*c) {
+			if (*c == '\n') {
+				*c = '\0';
+				break;
+			}
+			c += 1;
+		}
+
 		GtkWidget *prompt = gtk_label_new(ctx->opts.prompt);
 		gtk_container_add(GTK_CONTAINER(box), prompt);
 	}
