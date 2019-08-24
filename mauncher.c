@@ -12,6 +12,7 @@ struct context {
 	size_t strs_len;
 	ssize_t cursor;
 	ssize_t view;
+	int status;
 	int (*strncmp)(const char *a, const char *b, size_t n);
 
 	struct opts {
@@ -167,6 +168,7 @@ static gboolean on_keyboard(GtkWidget *widget, GdkEventKey *event, void *data) {
 	struct context *ctx = (struct context *)data;
 
 	if (event->keyval == GDK_KEY_Escape) {
+		ctx->status = EXIT_FAILURE;
 		g_application_quit(G_APPLICATION(ctx->app));
 	} else if (event->keyval == GDK_KEY_Left && ctx->cursor > ctx->view) {
 		if (ctx->cursor > 0)
@@ -278,8 +280,7 @@ static void activate(GtkApplication *app, void *data) {
 int main(int argc, char **argv) {
 	struct context ctx;
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.cursor = 0;
-	ctx.view = 0;
+	ctx.status = EXIT_SUCCESS;
 	ctx.strncmp = &strncmp;
 
 	GOptionEntry optents[] = {
@@ -302,5 +303,8 @@ int main(int argc, char **argv) {
 
 	free(ctx.data);
 	free(ctx.strs);
-	return status;
+	if (status)
+		return status;
+	else
+		return ctx.status;
 }
