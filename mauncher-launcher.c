@@ -9,7 +9,7 @@ static char *default_cmd[] = { "mauncher", "-i" };
 static char **dmenu_cmd = default_cmd;
 static int dmenu_cmd_len = sizeof(default_cmd) / sizeof(*default_cmd);
 
-// not const because, execvp takes pointers to non-const
+// not const because execvp takes pointers to non-const
 static char *calcstring =
 	"import sys, os, math\n"
 	"from math import (ceil, floor, log, log10, pow, sqrt,\n"
