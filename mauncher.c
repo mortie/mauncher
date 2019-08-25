@@ -228,7 +228,7 @@ static void activate(GtkApplication *app, void *data) {
 	gtk_window_set_default_size(GTK_WINDOW(win), geometry.width, 24);
 
 	gtk_layer_init_for_window(GTK_WINDOW(win));
-	gtk_layer_set_layer(GTK_WINDOW(win), GTK_LAYER_SHELL_LAYER_TOP);
+	gtk_layer_set_layer(GTK_WINDOW(win), GTK_LAYER_SHELL_LAYER_OVERLAY);
 	gtk_layer_set_monitor(GTK_WINDOW(win), mon);
 	gtk_layer_set_keyboard_interactivity(GTK_WINDOW(win), TRUE);
 
