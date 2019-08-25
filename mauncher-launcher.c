@@ -269,7 +269,7 @@ int main(int argc, char **argv) {
 			dmenu_cmd_len = argc - i - 1;
 			break;
 		} else if (strcmp(arg, "--calculator") == 0 || strcmp(arg, "-c") == 0) {
-			return calculator_menu(NULL);
+			return calculator_menu("=");
 		}
 	}
 
