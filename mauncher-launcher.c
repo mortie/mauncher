@@ -266,6 +266,7 @@ int main(int argc, char **argv) {
 			return EXIT_SUCCESS;
 		} else if (strcmp(arg, "--dmenu") == 0 || strcmp(arg, "-d") == 0) {
 			dmenu_cmd = argv + i + 1;
+			dmenu_cmd_len = argc - i - 1;
 			break;
 		} else if (strcmp(arg, "--calculator") == 0 || strcmp(arg, "-c") == 0) {
 			return calculator_menu(NULL);
@@ -322,7 +323,7 @@ int main(int argc, char **argv) {
 		}
 
 		int ret;
-		if (output[0] == '=' || output[0] == '@')
+		if (output[0] == '=')
 			ret = calculator(output + 1, NULL);
 		else
 			ret = launch(output);
