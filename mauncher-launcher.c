@@ -5,8 +5,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-// not const because bleh, execvp takes pointers to non-const
-static char *pystring =
+static char *default_cmd[] = { "mauncher", "-i" };
+static char **dmenu_cmd = default_cmd;
+static int dmenu_cmd_len = sizeof(default_cmd) / sizeof(*default_cmd);
+
+// not const because, execvp takes pointers to non-const
+static char *calcstring =
 	"import sys, os, math\n"
 	"from math import (ceil, floor, log, log10, pow, sqrt,\n"
 	"    cos, sin, tan, acos, asin, atan, atan2, hypot, degrees, radians,\n"
@@ -91,6 +95,30 @@ char *readall(int fd, size_t *len) {
 		return mem;
 }
 
+int exec_menu(char *prompt) {
+	if (prompt == NULL) {
+		char *argv[dmenu_cmd_len + 1];
+		memcpy(argv, dmenu_cmd, dmenu_cmd_len * sizeof(*dmenu_cmd));
+		argv[dmenu_cmd_len] = NULL;
+		if (execvp(argv[0], argv) < 0) {
+			perror(argv[0]);
+			return -1;
+		}
+	} else {
+		char *argv[dmenu_cmd_len + 3];
+		memcpy(argv, dmenu_cmd, dmenu_cmd_len * sizeof(*dmenu_cmd));
+		argv[dmenu_cmd_len] = "-p";
+		argv[dmenu_cmd_len + 1] = prompt;
+		argv[dmenu_cmd_len + 2] = NULL;
+		if (execvp(argv[0], argv) < 0) {
+			perror(argv[0]);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 int calculator(char *str, char *ans);
 
 int calculator_menu(char *answer) {
@@ -122,10 +150,8 @@ int calculator_menu(char *answer) {
 		close(outfds[0]);
 		dup2(infds[0], STDIN_FILENO);
 		dup2(outfds[1], STDOUT_FILENO);
-		if (execvp("mauncher", (char *const[]) { "mauncher", "-p", answer, NULL }) < 0) {
-			perror("execvp");
+		if (exec_menu(answer) < 0)
 			exit(EXIT_FAILURE);
-		}
 	} else {
 		close(infds[0]);
 		close(outfds[1]);
@@ -184,8 +210,8 @@ int calculator(char *str, char *ans) {
 	if (child == 0) {
 		close(fds[0]);
 		dup2(fds[1], STDOUT_FILENO);
-		if (execvp("python3", (char *const[]) { "python3", "-c", pystring, NULL }) < 0) {
-			perror("execvp");
+		if (execvp("python3", (char *const[]) { "python3", "-c", calcstring, NULL }) < 0) {
+			perror("python3");
 			exit(EXIT_FAILURE);
 		}
 	} else {
@@ -228,6 +254,24 @@ int launch(char *str) {
 }
 
 int main(int argc, char **argv) {
+	for (int i = 1; i < argc; ++i) {
+		char *arg = argv[i];
+		if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
+			printf("Usage: %s [--dmenu=\"mauncher\"]\n");
+			printf("\n");
+			printf("Options:\n");
+			printf("    --help|-h:            Show this help text.\n");
+			printf("    --dmenu|-d <argv...>: Use a different dmenu command.\n");
+			printf("    --calculator|-c:      Go straight to the calculator instead of launcher.\n");
+			return EXIT_SUCCESS;
+		} else if (strcmp(arg, "--dmenu") == 0 || strcmp(arg, "-d") == 0) {
+			dmenu_cmd = argv + i + 1;
+			break;
+		} else if (strcmp(arg, "--calculator") == 0 || strcmp(arg, "-c") == 0) {
+			return calculator_menu(NULL);
+		}
+	}
+
 	FILE *paths = popen("dmenu_path", "r");
 	if (paths == NULL) {
 		perror("dmenu_path");
@@ -252,10 +296,8 @@ int main(int argc, char **argv) {
 		close(fds[0]);
 		dup2(fileno(paths), STDIN_FILENO);
 		dup2(fds[1], STDOUT_FILENO);
-		if (execvp("mauncher", (char *[]) { "mauncher", NULL }) < 0) {
-			perror("execvp");
+		if (exec_menu(NULL))
 			exit(EXIT_FAILURE);
-		}
 	} else {
 		close(fds[1]);
 		size_t len;
