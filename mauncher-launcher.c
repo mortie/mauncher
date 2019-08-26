@@ -5,6 +5,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "sysutil.h"
+
 static char *default_cmd[] = { "mauncher", "-i" };
 static char **dmenu_cmd = default_cmd;
 static int dmenu_cmd_len = sizeof(default_cmd) / sizeof(*default_cmd);
@@ -64,36 +66,6 @@ static char *calcstring =
 	"    sys.stderr.write(str(e)+'\\n')\n"
 	"\n"
 	"print('{!r}'.format(res))\n";
-
-char *readall(int fd, size_t *len) {
-		char buf[512];
-		size_t size = 512;
-		*len = 0;
-		char *mem = malloc(size);
-
-		while (1) {
-			ssize_t l = read(fd, buf, sizeof(buf));
-			if (l < 0) {
-				perror("read");
-				free(mem);
-				return NULL;
-			} else if (l == 0) {
-				break;
-			}
-
-			if (*len + l >= size - 1) {
-				size *= 2;
-				mem = realloc(mem, size);
-			}
-
-			memcpy(mem + *len, buf, l);
-			*len += l;
-		}
-
-		mem[*len] = '\0';
-
-		return mem;
-}
 
 int exec_menu(char *prompt) {
 	if (prompt == NULL) {
@@ -160,7 +132,7 @@ int calculator_menu(char *answer) {
 		close(infds[1]);
 
 		size_t len;
-		char *expr = readall(outfds[0], &len);
+		char *expr = read_until(outfds[0], '\n', &len);
 		close(outfds[0]);
 		if (expr == NULL)
 			return EXIT_FAILURE;
@@ -217,7 +189,7 @@ int calculator(char *str, char *ans) {
 	} else {
 		close(fds[1]);
 		size_t len;
-		char *output = readall(fds[0], &len);
+		char *output = read_until(fds[0], '\n', &len);
 		close(fds[0]);
 		if (output == NULL)
 			return EXIT_FAILURE;
@@ -302,7 +274,7 @@ int main(int argc, char **argv) {
 	} else {
 		close(fds[1]);
 		size_t len;
-		char *output = readall(fds[0], &len);
+		char *output = read_until(fds[0], '\n', &len);
 		close(fds[0]);
 		if (output == NULL)
 			return EXIT_FAILURE;
