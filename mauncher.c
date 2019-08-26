@@ -4,16 +4,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "sysutil.h"
+
 struct context {
 	GtkApplication *app;
 	GtkWidget *container;
 	char *data;
-	size_t *strs;
+	char **strs;
 	size_t strs_len;
-	ssize_t cursor;
-	ssize_t view;
+	char **cursor;
+	char **view;
 	int status;
-	int (*strncmp)(const char *a, const char *b, size_t n);
 
 	struct opts {
 		gchar *prompt;
@@ -21,104 +22,43 @@ struct context {
 	} opts;
 };
 
-static int strs_compare(const void *aptr, const void *bptr, void *data) {
-	struct context *ctx = (struct context *)data;
-	int *a = (int *)aptr;
-	int *b = (int *)bptr;
-	return strcmp(ctx->data + *a, ctx->data + *b);
+int str_compare(const void *a, const void *b) {
+	return strcmp(*(const char **)a, *(const char **)b);
 }
 
-static int strs_case_compare(const void *aptr, const void *bptr, void *data) {
-	struct context *ctx = (struct context *)data;
-	int *a = (int *)aptr;
-	int *b = (int *)bptr;
-	return strcasecmp(ctx->data + *a, ctx->data + *b);
-}
-
-static ssize_t lookup(const char *prefix, struct context *ctx) {
-	if (prefix[0] == '\0')
-		return 0;
-	if (ctx->strs_len == 0)
-		return -1;
-
-	size_t pfxlen = strlen(prefix);
-	size_t start = 0;
-	size_t end = ctx->strs_len - 1;
-	size_t index;
-	int logcount = 0;
-	while (1) {
-		logcount += 1;
-		index = start + (end - start) / 2;
-		char *str = ctx->data + ctx->strs[index];
-
-		int ret = ctx->strncmp(str, prefix, pfxlen);
-		if (ret == 0) {
-			if (index > 0 && ctx->strncmp(ctx->data + ctx->strs[index - 1], prefix, pfxlen) == 0) {
-				end = index;
-			} else {
-				break;
-			}
-		} else if (ret < 0) {
-			start = index + 1;
-		} else {
-			end = index - 1;
-		}
-
-		if (end < start || end == 0)
-			return -1;
-	}
-
-	return (ssize_t)index;
+int str_case_compare(const void *a, const void *b) {
+	return strcasecmp(*(const char **)a, *(const char **)b);
 }
 
 static int read_input(struct context *ctx, FILE *f) {
-	size_t data_size = 1024;
-	size_t strs_size = 32;
-	size_t data_idx = 0;
-	size_t str_start = 0;
+	size_t len;
+	char *str = ctx->data = read_all(fileno(f), &len);
 
-	ctx->data = malloc(data_size);
+	ctx->strs_len = 0;
+	size_t strs_size = 512;
 	ctx->strs = malloc(strs_size * sizeof(*ctx->strs));
 
-	char buf[1024];
 	while (1) {
-		ssize_t n = fread(buf, 1, sizeof(buf), f);
-		if (n < 0) {
-			perror("fread()");
-			free(ctx->data);
-			free(ctx->strs);
-			return -1;
-		}
-
-		if (n == 0)
+		char *end = strchr(str, '\n');
+		if (end == NULL)
 			break;
 
-		for (ssize_t i = 0; i < n; ++i) {
-			char c = buf[i];
-			if (c == '\n') {
-				ctx->data[data_idx++] = '\0';
-				ctx->strs[ctx->strs_len++] = str_start;
-				str_start = data_idx;
-
-				if (ctx->strs_len >= strs_size) {
-					strs_size *= 2;
-					ctx->strs = realloc(ctx->strs, strs_size * sizeof(*ctx->strs));
-				}
-			} else {
-				ctx->data[data_idx++] = c;
-			}
-
-			if (data_idx >= data_size) {
-				data_size *= 2;
-				ctx->data = realloc(ctx->data, data_size);
-			}
+		if (ctx->strs_len >= strs_size - 2) {
+			strs_size *= 2;
+			ctx->strs = realloc(ctx->strs, strs_size * sizeof(*ctx->strs));
 		}
+
+		ctx->strs[ctx->strs_len++] = str;
+		*end = '\0';
+		str = end + 1;
 	}
 
+	ctx->strs[ctx->strs_len] = NULL;
+
 	if (ctx->opts.insensitive)
-		qsort_r(ctx->strs, ctx->strs_len, sizeof(*ctx->strs), strs_case_compare, ctx);
+		qsort(ctx->strs, ctx->strs_len, sizeof(*ctx->strs), &str_case_compare);
 	else
-		qsort_r(ctx->strs, ctx->strs_len, sizeof(*ctx->strs), strs_compare, ctx);
+		qsort(ctx->strs, ctx->strs_len, sizeof(*ctx->strs), &str_compare);
 
 	return 0;
 }
@@ -131,19 +71,16 @@ void draw_list(struct context *ctx) {
 	g_list_free(children);
 
 	// Draw new children
-	if (ctx->cursor >= 0) {
-		for (ssize_t i = ctx->view; i < ctx->view + 30; ++i) {
-			if (i >= (ssize_t)ctx->strs_len)
-				break;
-
+	if (ctx->cursor != NULL) {
+		for (char **i = ctx->view; i < ctx->view + 30 && *i != NULL; ++i) {
 			GtkWidget *label;
 			if (i == ctx->cursor) {
 				char *str = g_markup_printf_escaped(
-						"<span foreground=\"red\">%s</span>", ctx->data + ctx->strs[i]);
+						"<span foreground=\"red\">%s</span>", *i);
 				label = gtk_label_new("");
 				gtk_label_set_markup(GTK_LABEL(label), str);
 			} else {
-				label = gtk_label_new(ctx->data + ctx->strs[i]);
+				label = gtk_label_new(*i);
 			}
 			gtk_container_add(GTK_CONTAINER(ctx->container), label);
 		}
@@ -155,8 +92,8 @@ void draw_list(struct context *ctx) {
 static gboolean on_enter(GtkEntry *entry, void *data) {
 	struct context *ctx = (struct context *)data;
 
-	if (ctx->cursor >= 0 && ctx->cursor < (ssize_t)ctx->strs_len)
-		puts(ctx->data + ctx->strs[ctx->cursor]);
+	if (ctx->cursor != NULL)
+		puts(*ctx->cursor);
 	else
 		puts(gtk_entry_get_text(entry));
 
@@ -171,11 +108,11 @@ static gboolean on_keyboard(GtkWidget *widget, GdkEventKey *event, void *data) {
 		ctx->status = EXIT_FAILURE;
 		g_application_quit(G_APPLICATION(ctx->app));
 	} else if (event->keyval == GDK_KEY_Left && ctx->cursor > ctx->view) {
-		if (ctx->cursor > 0)
+		if (ctx->cursor > ctx->strs)
 			ctx->cursor -= 1;
 		draw_list(ctx);
 	} else if (event->keyval == GDK_KEY_Right && ctx->cursor >= 0) {
-		if (ctx->cursor < (ssize_t)ctx->strs_len - 1)
+		if (ctx->cursor[1] != NULL)
 			ctx->cursor += 1;
 		draw_list(ctx);
 	}
@@ -185,7 +122,10 @@ static gboolean on_keyboard(GtkWidget *widget, GdkEventKey *event, void *data) {
 static gboolean on_change(GtkEditable *editable, void *data) {
 	struct context *ctx = (struct context *)data;
 
-	ctx->cursor = lookup(gtk_entry_get_text(GTK_ENTRY(editable)), ctx);
+	int (*cmp)(const char *a, const char *b, size_t n) =
+		ctx->opts.insensitive ? &strncasecmp : &strncmp;
+	ctx->cursor = bs_lookup(
+			gtk_entry_get_text(GTK_ENTRY(editable)), ctx->strs, ctx->strs_len, cmp);
 	ctx->view = ctx->cursor;
 	draw_list(ctx);
 	return FALSE;
@@ -211,13 +151,13 @@ static GdkMonitor *get_monitor(GdkDisplay *disp) {
 
 static void activate(GtkApplication *app, void *data) {
 	struct context *ctx = (struct context *)data;
-	if (ctx->opts.insensitive)
-		ctx->strncmp = &strncasecmp;
 
 	GtkWidget *win = gtk_application_window_new(ctx->app);
 
 	if (read_input(ctx, stdin) < 0)
 		g_application_quit(G_APPLICATION(ctx->app));
+	ctx->cursor = ctx->strs;
+	ctx->view = ctx->strs;
 
 	gtk_window_set_title(GTK_WINDOW(win), "Mauncher");
 	gtk_window_set_decorated(GTK_WINDOW(win), FALSE);
@@ -281,7 +221,6 @@ int main(int argc, char **argv) {
 	struct context ctx;
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.status = EXIT_SUCCESS;
-	ctx.strncmp = &strncmp;
 
 	GOptionEntry optents[] = {
 		{
