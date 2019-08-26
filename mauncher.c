@@ -33,27 +33,7 @@ int str_case_compare(const void *a, const void *b) {
 static int read_input(struct context *ctx, FILE *f) {
 	size_t len;
 	char *str = ctx->data = read_all(fileno(f), &len);
-
-	ctx->strs_len = 0;
-	size_t strs_size = 512;
-	ctx->strs = malloc(strs_size * sizeof(*ctx->strs));
-
-	while (1) {
-		char *end = strchr(str, '\n');
-		if (end == NULL)
-			break;
-
-		if (ctx->strs_len >= strs_size - 2) {
-			strs_size *= 2;
-			ctx->strs = realloc(ctx->strs, strs_size * sizeof(*ctx->strs));
-		}
-
-		ctx->strs[ctx->strs_len++] = str;
-		*end = '\0';
-		str = end + 1;
-	}
-
-	ctx->strs[ctx->strs_len] = NULL;
+	ctx->strs = string_split(ctx->data, '\n', &ctx->strs_len);
 
 	if (ctx->opts.insensitive)
 		qsort(ctx->strs, ctx->strs_len, sizeof(*ctx->strs), &str_case_compare);

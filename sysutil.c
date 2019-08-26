@@ -22,6 +22,31 @@ char *string_concat(char **strs) {
 	return str;
 }
 
+char **string_split(char *str, char c, size_t *len) {
+	*len = 0;
+	size_t size = 512;
+	char **strs = malloc(size * sizeof(*strs));
+
+	while (1) {
+		char *end = strchr(str, c);
+		if (end == NULL)
+			break;
+
+		if (*len >= size - 2) {
+			size *= 2;
+			strs = realloc(strs, size * sizeof(*strs));
+		}
+
+		strs[(*len)++] = str;
+		*end = '\0';
+		str = end + 1;
+	}
+
+	strs[*len] = NULL;
+
+	return strs;
+}
+
 char *read_until(int fd, char c, size_t *len) {
 	char buf[1024];
 	size_t size = 1024;
