@@ -1,3 +1,6 @@
 /mauncher
 /mauncher-launcher
 /gtk-layer-shell
+/mauncher.o
+/mauncher-launcher.o
+/sysutil.o

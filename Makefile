@@ -3,7 +3,13 @@ LDFLAGS += -Wl,--no-as-needed -lpthread $(shell pkg-config --libs gtk+-3.0 wayla
 PREFIX ?= /usr/local
 
 all: mauncher mauncher-launcher
+
 mauncher mauncher.c: gtk-layer-shell/usr/lib/libgtk-layer-shell.a
+mauncher: mauncher.o sysutil.o
+mauncher.c: sysutil.h
+
+mauncher-launcher: mauncher-launcher.o sysutil.o
+mauncher-launcher.c: sysutil.c
 
 gtk-layer-shell/usr/lib/libgtk-layer-shell.a:
 	[ -f gtk-layer-shell/.git ] || git submodule update --init gtk-layer-shell
@@ -14,7 +20,7 @@ gtk-layer-shell/usr/lib/libgtk-layer-shell.a:
 
 .PHONY: clean
 clean:
-	rm -f mauncher mauncher-launcher
+	rm -f mauncher mauncher-launcher *.o
 
 .PHONY: cleanall
 cleanall: clean
