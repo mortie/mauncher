@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <dirent.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -67,7 +69,119 @@ static char *calcstring =
 	"\n"
 	"print('{!r}'.format(res))\n";
 
-int exec_menu(char *prompt) {
+char *desktops_data = NULL;
+char **desktops = NULL;
+size_t desktops_len = 0;
+size_t desktops_size = 0;
+
+static int str_compare(const void *a, const void *b) {
+	return strcmp(*(const char **)a, *(const char **)b);
+}
+
+static void read_desktop_file(char *fpath, char *entname) {
+	FILE *f = fopen(fpath, "r");
+	if (f == NULL) {
+		perror(fpath);
+		return;
+	}
+
+	char linebuf[1024];
+	while (1) {
+		if (fgets(linebuf, sizeof(linebuf), f) == NULL)
+			break;
+
+		if (strncmp(linebuf, "Name", 4) == 0 && (linebuf[4] == ' ' || linebuf[4] == '=')) {
+			size_t start = 4;
+			while (linebuf[start] == ' ') start += 1;
+			start += 1;
+			while (linebuf[start] == ' ') start += 1;
+
+			size_t end = start;
+			while (linebuf[end] != '\n' && linebuf[end] != '\0') end += 1;
+			linebuf[end] = '\0';
+
+			char *line = string_concat(
+					(char *[]) { linebuf + start, ";", entname, NULL });
+
+			if (desktops_size == 0) {
+				desktops_size = 32;
+				desktops = realloc(desktops, desktops_size * sizeof(*desktops));
+			}
+
+			if (desktops_len >= desktops_size - 1) {
+				desktops_size *= 2;
+				desktops = realloc(desktops, desktops_size * sizeof(*desktops));
+			}
+
+			desktops[desktops_len++] = line;
+
+			break;
+		}
+	}
+
+	fclose(f);
+}
+
+static void find_desktop_files_in_dir(char *path) {
+	DIR *dir = opendir(path);
+	if (dir == NULL) {
+		if (errno != ENOENT)
+			perror(path);
+		return;
+	}
+
+	while (1) {
+		errno = 0;
+		struct dirent *ent = readdir(dir);
+		if (ent == NULL && errno == 0) {
+			break;
+		} else if (ent == NULL) {
+			perror(path);
+			break;
+		}
+
+		if (ent->d_type != DT_REG && ent->d_type != DT_LNK)
+			continue;
+
+		char *fpath = string_concat(
+				(char *[]) { path, "/", ent->d_name, NULL });
+		read_desktop_file(fpath, ent->d_name);
+		free(fpath);
+	}
+
+	closedir(dir);
+}
+
+static void find_desktop_files() {
+	char *datadirs = string_concat(
+			(char *[]) { xdg_data_dirs(), ":", xdg_data_home(), NULL });
+
+	size_t start = 0;
+	size_t i = 0;
+	while (1) {
+		char c = datadirs[i];
+		if (c == ':' || c == '\0') {
+			datadirs[i] = '\0';
+
+			char *str = string_concat(
+					(char *[]) { datadirs + start, "/applications", NULL });
+			find_desktop_files_in_dir(str);
+			free(str);
+
+			start = i + 1;
+			if (c == '\0')
+				break;
+		}
+
+		i += 1;
+	}
+
+	free(datadirs);
+
+	qsort(desktops, desktops_len, sizeof(*desktops), &str_compare);
+}
+
+static int exec_menu(char *prompt) {
 	if (prompt == NULL) {
 		char *argv[dmenu_cmd_len + 1];
 		memcpy(argv, dmenu_cmd, dmenu_cmd_len * sizeof(*dmenu_cmd));
@@ -91,9 +205,9 @@ int exec_menu(char *prompt) {
 	return 0;
 }
 
-int calculator(char *str, char *ans);
+static int calculator(char *str, char *ans);
 
-int calculator_menu(char *answer) {
+static int calculator_menu(char *answer) {
 	int infds[2];
 	int outfds[2];
 
@@ -162,7 +276,7 @@ int calculator_menu(char *answer) {
 	}
 }
 
-int calculator(char *str, char *ans) {
+static int calculator(char *str, char *ans) {
 	int fds[2];
 	if (pipe(fds) < 0) {
 		perror("pipe");
@@ -215,13 +329,31 @@ int calculator(char *str, char *ans) {
 	}
 }
 
-int launch(char *str) {
+static int shell(char *str) {
 	int ret = system(str);
 	if (ret < 0) {
 		perror("system");
 		return EXIT_FAILURE;
 	} else {
 		return ret;
+	}
+}
+
+static int launch(char *str) {
+	char **key = bs_lookup(str, desktops, desktops_len, strncmp);
+	if (key == NULL)
+		return -1;
+
+	char *val = strchr(*key, ';');
+	if (val == NULL) {
+		fprintf(stderr, "Desktop file entry doesn't contain a value: %s\n", *key);
+		return EXIT_FAILURE;
+	}
+	val += 1;
+
+	if (execvp("gtk-launch", (char *[]) { "gtk-launch", val, NULL }) < 0) {
+		perror("gtk-launch");
+		return EXIT_FAILURE;
 	}
 }
 
@@ -245,37 +377,65 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	FILE *paths = popen("dmenu_path", "r");
-	if (paths == NULL) {
-		perror("dmenu_path");
+	find_desktop_files();
+	for (size_t i = 0; i < desktops_len; ++i) {
+		char *x = strchr(desktops[i], ';');
+		*x = '\0';
+		printf("%s\n", desktops[i]);
+	}
+	exit(0);
+
+	int infds[2];
+	if (pipe(infds) < 0) {
+		perror("pipe");
 		return EXIT_FAILURE;
 	}
 
-	int fds[2];
-	if (pipe(fds) < 0) {
+	int outfds[2];
+	if (pipe(outfds) < 0) {
 		perror("pipe");
-		pclose(paths);
 		return EXIT_FAILURE;
 	}
 
 	pid_t child = fork();
 	if (child < 0) {
 		perror("fork");
-		pclose(paths);
 		return EXIT_FAILURE;
 	}
 
+	find_desktop_files();
+
 	if (child == 0) {
-		close(fds[0]);
-		dup2(fileno(paths), STDIN_FILENO);
-		dup2(fds[1], STDOUT_FILENO);
+		close(infds[1]);
+		close(outfds[0]);
+		dup2(infds[0], STDIN_FILENO);
+		dup2(outfds[1], STDOUT_FILENO);
 		if (exec_menu(NULL))
 			exit(EXIT_FAILURE);
 	} else {
-		close(fds[1]);
+		close(infds[0]);
+		close(outfds[1]);
+
+		for (size_t i = 0; i < desktops_len; ++i) {
+			char *chr = strchr(desktops[i], ';');
+			if (chr == NULL)
+				break;
+
+			if (write(infds[1], desktops[i], chr - desktops[i]) < 0) {
+				perror("write");
+				break;
+			}
+
+			if (write(infds[1], "\n", 1) < 0) {
+				perror("write");
+				break;
+			}
+		}
+		close(infds[1]);
+
 		size_t len;
-		char *output = read_until(fds[0], '\n', &len);
-		close(fds[0]);
+		char *output = read_until(outfds[0], '\n', &len);
+		close(outfds[0]);
 		if (output == NULL)
 			return EXIT_FAILURE;
 
@@ -294,11 +454,15 @@ int main(int argc, char **argv) {
 			return WSTOPSIG(status) + 128;
 		}
 
-		int ret;
-		if (output[0] == '=')
-			ret = calculator(output + 1, NULL);
-		else
-			ret = launch(output);
+		int ret = launch(output);
+		if (ret < 0) {
+			if (output[0] == '$')
+				return shell(output + 1);
+			else
+				return calculator(output, NULL);
+		} else {
+			return ret;
+		}
 
 		free(output);
 		return ret;
