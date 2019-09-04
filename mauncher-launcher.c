@@ -266,7 +266,7 @@ static int calculator_menu(char *answer) {
 			return WSTOPSIG(status) + 128;
 		}
 
-		if (strcmp(expr, "$\n") == 0) {
+		if (strcmp(expr, "$") == 0) {
 			free(expr);
 			return EXIT_SUCCESS;
 		} else {
