@@ -85,6 +85,9 @@ static void read_desktop_file(char *fpath, char *entname) {
 		return;
 	}
 
+	char *entry = NULL;
+	int display = 1;
+
 	char linebuf[1024];
 	while (1) {
 		if (fgets(linebuf, sizeof(linebuf), f) == NULL)
@@ -100,23 +103,41 @@ static void read_desktop_file(char *fpath, char *entname) {
 			while (linebuf[end] != '\n' && linebuf[end] != '\0') end += 1;
 			linebuf[end] = '\0';
 
-			char *line = string_concat(
+			entry = string_concat(
 					(char *[]) { linebuf + start, ";", entname, NULL });
 
-			if (desktops_size == 0) {
-				desktops_size = 32;
-				desktops = realloc(desktops, desktops_size * sizeof(*desktops));
-			}
-
-			if (desktops_len >= desktops_size - 1) {
-				desktops_size *= 2;
-				desktops = realloc(desktops, desktops_size * sizeof(*desktops));
-			}
-
-			desktops[desktops_len++] = line;
-
 			break;
+		} else if (strncmp(linebuf, "NoDisplay", 9) == 0 && (linebuf[9] == ' ' || linebuf[9] == '=')) {
+			size_t start = 9;
+			while (linebuf[start] == ' ') start += 1;
+			start += 1;
+			while (linebuf[start] == ' ') start += 1;
+
+			size_t end = start;
+			while (linebuf[end] != '\n' && linebuf[end] != '\0') end += 1;
+			linebuf[end] = '\0';
+
+			if (strcmp(linebuf + start, "true") == 0) {
+				display = 0;
+				break;
+			}
 		}
+	}
+
+	if (display && entry) {
+		if (desktops_size == 0) {
+			desktops_size = 32;
+			desktops = realloc(desktops, desktops_size * sizeof(*desktops));
+		}
+
+		if (desktops_len >= desktops_size - 1) {
+			desktops_size *= 2;
+			desktops = realloc(desktops, desktops_size * sizeof(*desktops));
+		}
+
+		desktops[desktops_len++] = entry;
+	} else {
+		free(entry);
 	}
 
 	fclose(f);
@@ -367,6 +388,7 @@ int main(int argc, char **argv) {
 			printf("    --help|-h:            Show this help text.\n");
 			printf("    --dmenu|-d <argv...>: Use a different dmenu command.\n");
 			printf("    --calculator|-c:      Go straight to the calculator instead of launcher.\n");
+			printf("    --list|-l:            Just print the found applications, don't run the dmenu command.\n");
 			return EXIT_SUCCESS;
 		} else if (strcmp(arg, "--dmenu") == 0 || strcmp(arg, "-d") == 0) {
 			dmenu_cmd = argv + i + 1;
@@ -374,6 +396,12 @@ int main(int argc, char **argv) {
 			break;
 		} else if (strcmp(arg, "--calculator") == 0 || strcmp(arg, "-c") == 0) {
 			return calculator_menu("=");
+		} else if (strcmp(arg, "--list") == 0 || strcmp(arg, "-l") == 0) {
+			find_desktop_files();
+			for (size_t i = 0; i < desktops_len; ++i) {
+				printf("%s\n", desktops[i]);
+			}
+			return EXIT_SUCCESS;
 		}
 	}
 
@@ -406,9 +434,7 @@ int main(int argc, char **argv) {
 		close(infds[0]);
 		close(outfds[1]);
 
-		printf("start\n");
 		find_desktop_files();
-		printf("end\n");
 
 		for (size_t i = 0; i < desktops_len; ++i) {
 			char *chr = strchr(desktops[i], ';');
