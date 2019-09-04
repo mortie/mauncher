@@ -91,7 +91,7 @@ static gboolean on_keyboard(GtkWidget *widget, GdkEventKey *event, void *data) {
 		if (ctx->cursor > ctx->strs)
 			ctx->cursor -= 1;
 		draw_list(ctx);
-	} else if (event->keyval == GDK_KEY_Right && ctx->cursor >= 0) {
+	} else if (event->keyval == GDK_KEY_Right && ctx->cursor >= ctx->strs) {
 		if (ctx->cursor[1] != NULL)
 			ctx->cursor += 1;
 		draw_list(ctx);
