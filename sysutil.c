@@ -122,10 +122,10 @@ char **bs_lookup(
 	if (len == 0)
 		return NULL;
 
-	size_t pfxlen = strlen(prefix);
-	size_t start = 0;
-	size_t end = len - 1;
-	size_t index;
+	ssize_t pfxlen = strlen(prefix);
+	ssize_t start = 0;
+	ssize_t end = len - 1;
+	ssize_t index;
 	int logcount = 0;
 	while (1) {
 		logcount += 1;

@@ -377,14 +377,6 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	find_desktop_files();
-	for (size_t i = 0; i < desktops_len; ++i) {
-		char *x = strchr(desktops[i], ';');
-		*x = '\0';
-		printf("%s\n", desktops[i]);
-	}
-	exit(0);
-
 	int infds[2];
 	if (pipe(infds) < 0) {
 		perror("pipe");
