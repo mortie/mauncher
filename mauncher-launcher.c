@@ -395,8 +395,6 @@ int main(int argc, char **argv) {
 		return EXIT_FAILURE;
 	}
 
-	find_desktop_files();
-
 	if (child == 0) {
 		close(infds[1]);
 		close(outfds[0]);
@@ -407,6 +405,10 @@ int main(int argc, char **argv) {
 	} else {
 		close(infds[0]);
 		close(outfds[1]);
+
+		printf("start\n");
+		find_desktop_files();
+		printf("end\n");
 
 		for (size_t i = 0; i < desktops_len; ++i) {
 			char *chr = strchr(desktops[i], ';');
