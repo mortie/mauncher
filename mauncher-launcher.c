@@ -93,7 +93,10 @@ static void read_desktop_file(char *fpath, char *entname) {
 		if (fgets(linebuf, sizeof(linebuf), f) == NULL)
 			break;
 
-		if (strncmp(linebuf, "Name", 4) == 0 && (linebuf[4] == ' ' || linebuf[4] == '=')) {
+		// Find the first name
+		if (
+				entry == NULL && strncmp(linebuf, "Name", 4) == 0 &&
+				(linebuf[4] == ' ' || linebuf[4] == '=')) {
 			size_t start = 4;
 			while (linebuf[start] == ' ') start += 1;
 			start += 1;
@@ -106,8 +109,10 @@ static void read_desktop_file(char *fpath, char *entname) {
 			entry = string_concat(
 					(char *[]) { linebuf + start, ";", entname, NULL });
 
-			break;
-		} else if (strncmp(linebuf, "NoDisplay", 9) == 0 && (linebuf[9] == ' ' || linebuf[9] == '=')) {
+		// Ignore desktop files with NoDisplay=true
+		} else if (
+				strncmp(linebuf, "NoDisplay", 9) == 0 &&
+				(linebuf[9] == ' ' || linebuf[9] == '=')) {
 			size_t start = 9;
 			while (linebuf[start] == ' ') start += 1;
 			start += 1;
