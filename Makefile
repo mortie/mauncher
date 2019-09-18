@@ -1,15 +1,19 @@
-CFLAGS += -D_GNU_SOURCE -O2 -Igtk-layer-shell/usr/include $(shell pkg-config --cflags gtk+-3.0 wayland-client)
-LDFLAGS += -Wl,--no-as-needed -lpthread $(shell pkg-config --libs gtk+-3.0 wayland-client)
+CFLAGS += \
+	-D_GNU_SOURCE -O2 -Igtk-layer-shell/usr/include \
+	$(shell pkg-config --cflags gtk+-3.0 wayland-client)
+LDFLAGS += \
+	-Wl,--no-as-needed -lpthread \
+	$(shell pkg-config --libs gtk+-3.0 wayland-client)
 PREFIX ?= /usr/local
 
 all: mauncher mauncher-launcher
 
-mauncher mauncher.c: gtk-layer-shell/usr/lib/libgtk-layer-shell.a
-mauncher: mauncher.o sysutil.o
-mauncher.c: sysutil.h
+mauncher: mauncher.o mauncher-win.o sysutil.o gtk-layer-shell/usr/lib/libgtk-layer-shell.a
+mauncher.o: sysutil.h mauncher-win.h
+mauncher-win.o: sysutil.h gtk-layer-shell/usr/lib/libgtk-layer-shell.a
 
 mauncher-launcher: mauncher-launcher.o sysutil.o
-mauncher-launcher.c: sysutil.c
+mauncher-launcher.o: sysutil.h
 
 gtk-layer-shell/usr/lib/libgtk-layer-shell.a:
 	[ -f gtk-layer-shell/.git ] || git submodule update --init gtk-layer-shell
@@ -20,7 +24,7 @@ gtk-layer-shell/usr/lib/libgtk-layer-shell.a:
 
 .PHONY: clean
 clean:
-	rm -f mauncher mauncher-launcher *.o
+	rm -f mauncher mauncher-launcher mauncher-win *.o
 
 .PHONY: cleanall
 cleanall: clean
