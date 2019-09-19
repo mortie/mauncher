@@ -151,6 +151,44 @@ char **bs_lookup(
 	return strs + index;
 }
 
+uint64_t read_uint64(uint8_t buf[8]) {
+	return 0 |
+		(uint64_t)buf[0] << 56 |
+		(uint64_t)buf[1] << 48 |
+		(uint64_t)buf[2] << 40 |
+		(uint64_t)buf[3] << 32 |
+		(uint64_t)buf[4] << 24 |
+		(uint64_t)buf[5] << 16 |
+		(uint64_t)buf[6] << 8 |
+		(uint64_t)buf[7] << 0;
+}
+
+void write_uint64(uint8_t buf[8], uint64_t num) {
+	buf[0] = num >> 56;
+	buf[1] = num >> 48;
+	buf[2] = num >> 40;
+	buf[3] = num >> 32;
+	buf[4] = num >> 24;
+	buf[5] = num >> 16;
+	buf[6] = num >> 8;
+	buf[7] = num >> 0;
+}
+
+uint32_t read_uint32(uint8_t buf[4]) {
+	return 0 |
+		(uint32_t)buf[0] << 24 |
+		(uint32_t)buf[1] << 16 |
+		(uint32_t)buf[2] << 8 |
+		(uint32_t)buf[3] << 0;
+}
+
+void write_uint32(uint8_t buf[4], uint32_t num) {
+	buf[0] = num >> 24;
+	buf[1] = num >> 16;
+	buf[2] = num >> 8;
+	buf[3] = num >> 0;
+}
+
 char *xdg_runtime_dir() {
 	static char *path = NULL;
 	if (path != NULL)

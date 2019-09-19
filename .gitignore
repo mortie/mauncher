@@ -2,5 +2,7 @@
 /mauncher-launcher
 /gtk-layer-shell
 /mauncher.o
+/mauncher-win.o
+/mauncher-ipc.o
 /mauncher-launcher.o
 /sysutil.o

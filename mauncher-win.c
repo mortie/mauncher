@@ -21,7 +21,7 @@ struct win {
 	char **cursor;
 	char **view;
 
-	struct mauncher_opts opts;
+	struct mauncher_win_opts opts;
 };
 
 static int str_compare(const void *a, const void *b) {
@@ -127,7 +127,7 @@ static GdkMonitor *get_monitor(GdkDisplay *disp) {
 }
 
 void mauncher_win_run(
-		GtkApplication *app, char *input, struct mauncher_opts opts,
+		GtkApplication *app, char *input, struct mauncher_win_opts opts,
 		void (*callback)(const char *output, int status, void *data), void *data) {
 
 	struct win *win = malloc(sizeof(*win));
@@ -138,7 +138,6 @@ void mauncher_win_run(
 	win->status = EXIT_SUCCESS;
 	win->opts = opts;
 
-	size_t len;
 	win->strs = string_split(win->input, '\n', &win->strs_len);
 	if (win->opts.insensitive)
 		qsort(win->strs, win->strs_len, sizeof(*win->strs), &str_case_compare);
@@ -173,7 +172,7 @@ void mauncher_win_run(
 	GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
 	gtk_container_add(GTK_CONTAINER(win->win), box);
 
-	if (win->opts.prompt) {
+	if (win->opts.prompt && win->opts.prompt[0] != '\0') {
 		gtk_widget_set_margin_start(box, 8);
 
 		// Only show one line
