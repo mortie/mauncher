@@ -300,6 +300,8 @@ static int calculator_menu(char *answer) {
 			free(expr);
 		}
 	}
+
+	return EXIT_SUCCESS;
 }
 
 static int calculator(char *str, char *ans) {
@@ -353,6 +355,8 @@ static int calculator(char *str, char *ans) {
 		free(output);
 		return ret;
 	}
+
+	return EXIT_SUCCESS;
 }
 
 static int shell(char *str) {
@@ -381,13 +385,15 @@ static int launch(char *str) {
 		perror("gtk-launch");
 		return EXIT_FAILURE;
 	}
+
+	return EXIT_SUCCESS;
 }
 
 int main(int argc, char **argv) {
 	for (int i = 1; i < argc; ++i) {
 		char *arg = argv[i];
 		if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
-			printf("Usage: %s [--dmenu=\"mauncher\"]\n");
+			printf("Usage: %s [--dmenu=\"mauncher\"]\n", argv[0]);
 			printf("\n");
 			printf("Options:\n");
 			printf("    --help|-h:            Show this help text.\n");
