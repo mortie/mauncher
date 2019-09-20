@@ -108,24 +108,6 @@ static gboolean on_change(GtkEditable *editable, void *data) {
 	return FALSE;
 }
 
-static GdkMonitor *get_monitor(GdkDisplay *disp) {
-	int nmons = gdk_display_get_n_monitors(disp);
-	GdkMonitor *mon = NULL;
-
-	for (int i = 0; i < nmons; ++i) {
-		GdkMonitor *m = gdk_display_get_monitor(disp, i);
-		if (mon == NULL)
-			mon = m;
-
-		if (gdk_monitor_is_primary(m)) {
-			mon = m;
-			break;
-		}
-	}
-
-	return mon;
-}
-
 void mauncher_win_run(
 		GtkApplication *app, char *input, struct mauncher_win_opts opts,
 		void (*callback)(const char *output, int status, void *data), void *data) {
@@ -148,17 +130,12 @@ void mauncher_win_run(
 	win->view = win->strs;
 
 	win->win = gtk_application_window_new(win->app);
+
 	gtk_window_set_title(GTK_WINDOW(win->win), "Mauncher");
 	gtk_window_set_decorated(GTK_WINDOW(win->win), FALSE);
 
-	GdkRectangle geometry;
-	GdkMonitor *mon = get_monitor(gdk_display_get_default());
-	gdk_monitor_get_geometry(mon, &geometry);
-	gtk_window_set_default_size(GTK_WINDOW(win->win), geometry.width, 24);
-
 	gtk_layer_init_for_window(GTK_WINDOW(win->win));
 	gtk_layer_set_layer(GTK_WINDOW(win->win), GTK_LAYER_SHELL_LAYER_OVERLAY);
-	gtk_layer_set_monitor(GTK_WINDOW(win->win), mon);
 	gtk_layer_set_keyboard_interactivity(GTK_WINDOW(win->win), TRUE);
 
 	gtk_layer_set_anchor(GTK_WINDOW(win->win), GTK_LAYER_SHELL_EDGE_TOP, TRUE);

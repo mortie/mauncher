@@ -31,7 +31,6 @@ struct daemon_invocation {
 
 //static void daemon_free_channel(struct daemon_ctx *ctx, GIOChannel *channel) {
 static void daemon_free_conn(struct daemon_conn *conn) {
-
 	GError *err = NULL;
 	g_io_channel_shutdown(*conn->channel, TRUE, &err);
 	if (err != NULL) {
