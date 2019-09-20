@@ -293,9 +293,10 @@ int main(int argc, char **argv) {
 	}
 
 	close(sockfd);
-	if (reply.reply[0] != '\0') {
+
+	if (reply.status == EXIT_SUCCESS)
 		puts(reply.reply);
-		free(reply.reply);
-	}
+	free(reply.reply);
+
 	return reply.status;
 }
