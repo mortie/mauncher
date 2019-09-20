@@ -136,7 +136,7 @@ static void activate(GtkApplication *app, gpointer data) {
 	gtk_main();
 }
 
-static int daemon_main() {
+static int daemon_main(int closefd) {
 	chdir(g_get_home_dir());
 
 	struct daemon_ctx ctx = { 0 };
@@ -184,6 +184,9 @@ static int daemon_main() {
 		return EXIT_FAILURE;
 	}
 
+	if (closefd >= 0)
+		close(closefd);
+
 	GtkApplication *app = gtk_application_new("coffee.mort.mauncher", G_APPLICATION_NON_UNIQUE);
 	g_signal_connect(app, "activate", G_CALLBACK(activate), &ctx);
 	int status = g_application_run(G_APPLICATION(app), 0, NULL);
@@ -191,13 +194,38 @@ static int daemon_main() {
 	return status;
 }
 
-static void daemon_fork() {
+static int daemon_fork() {
+	int fds[2];
+	if (pipe(fds) < 0) {
+		perror("pipe");
+		return -1;
+	}
+
 	printf("forking\n");
 	pid_t child = fork();
-	if (child == 0) {
-		daemon(1, 0);
-		exit(daemon_main());
+	if (child < 0) {
+		perror("fork");
+		close(fds[0]);
+		close(fds[1]);
+		return -1;
 	}
+
+	if (child == 0) {
+		close(fds[0]);
+		daemon(1, 0);
+		exit(daemon_main(fds[1]));
+	} else {
+		close(fds[1]);
+		char buf[1];
+
+		// Just wait for the child to close the pipe
+		if (read(fds[0], buf, 1) < 0) {
+			perror("read");
+			return -1;
+		}
+	}
+
+	return 0;
 }
 
 struct opts {
@@ -236,7 +264,7 @@ int main(int argc, char **argv) {
 	}
 
 	if (opts.daemon)
-		return daemon_main();
+		return daemon_main(-1);
 
 	struct sockaddr_un addr;
 	addr.sun_family = AF_UNIX;
@@ -259,8 +287,11 @@ int main(int argc, char **argv) {
 
 	if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 		if (errno == ENOENT || errno == ECONNREFUSED) {
-			daemon_fork();
-			usleep(200l * 1000l);
+			if (daemon_fork() < 0) {
+				close(sockfd);
+				return EXIT_FAILURE;
+			}
+
 			if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 				perror(addr.sun_path);
 				close(sockfd);
