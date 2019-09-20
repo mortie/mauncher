@@ -293,7 +293,9 @@ int main(int argc, char **argv) {
 	}
 
 	close(sockfd);
-	puts(reply.reply);
-	free(reply.reply);
+	if (reply.reply[0] != '\0') {
+		puts(reply.reply);
+		free(reply.reply);
+	}
 	return reply.status;
 }
