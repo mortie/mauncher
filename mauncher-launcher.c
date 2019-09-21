@@ -487,8 +487,10 @@ int main(int argc, char **argv) {
 
 		int ret = launch(output);
 		if (ret < 0) {
-			if (output[0] == '$')
+			if (strncmp(output, "$", 1) == 0)
 				return shell(output + 1);
+			else if (strncmp(output, "sh ", 3) == 0)
+				return shell(output + 3);
 			else
 				return calculator(output, NULL);
 		} else {
