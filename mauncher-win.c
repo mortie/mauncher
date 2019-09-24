@@ -21,6 +21,9 @@ struct win {
 	char **cursor;
 	char **view;
 
+	gint entry_padding;
+	gint entry_min_width;
+
 	struct mauncher_win_opts opts;
 };
 
@@ -99,10 +102,21 @@ static gboolean on_keyboard(GtkWidget *widget, GdkEventKey *event, void *data) {
 static gboolean on_change(GtkEditable *editable, void *data) {
 	struct win *win = (struct win *)data;
 
+	const gchar *text = gtk_entry_get_text(GTK_ENTRY(editable));
+
+	PangoLayout *layout = gtk_widget_create_pango_layout(GTK_WIDGET(editable), text);
+	PangoRectangle rect;
+	pango_layout_get_extents(layout, NULL, &rect);
+	pango_extents_to_pixels(NULL, &rect);
+	g_object_unref(layout);
+	if (rect.width + win->entry_padding > win->entry_min_width)
+		gtk_widget_set_size_request(GTK_WIDGET(editable), rect.width + win->entry_padding, -1);
+	else
+		gtk_widget_set_size_request(GTK_WIDGET(editable), win->entry_min_width, -1);
+
 	int (*cmp)(const char *a, const char *b, size_t n) =
 		win->opts.insensitive ? &strncasecmp : &strncmp;
-	win->cursor = bs_lookup(
-			gtk_entry_get_text(GTK_ENTRY(editable)), win->strs, win->strs_len, cmp);
+	win->cursor = bs_lookup(text, win->strs, win->strs_len, cmp);
 	win->view = win->cursor;
 	draw_list(win);
 	return FALSE;
@@ -179,6 +193,9 @@ void mauncher_win_run(
 
 	gtk_widget_show_all(win->win);
 	gtk_window_present(GTK_WINDOW(win->win));
+
+	win->entry_padding = 24;
+	gtk_widget_get_preferred_width(in, NULL, &win->entry_min_width);
 
 	draw_list(win);
 }
