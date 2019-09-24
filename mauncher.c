@@ -200,7 +200,6 @@ static int daemon_fork() {
 		return -1;
 	}
 
-	printf("forking\n");
 	pid_t child = fork();
 	if (child < 0) {
 		perror("fork");
