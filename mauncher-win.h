@@ -6,7 +6,7 @@
 struct mauncher_win_opts {
 	gchar *prompt;
 	gboolean insensitive;
-} mauncher_win_opts;
+};
 
 void mauncher_win_run(
 		GtkApplication *app, char *input, struct mauncher_win_opts opts,
