@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <gdk/gdkwayland.h>
-#include <gtk-layer-shell/gtk-layer-shell.h>
+#include <gtk-layer-shell.h>
 
 #include "sysutil.h"
 

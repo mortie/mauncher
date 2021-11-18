@@ -14,12 +14,14 @@ available for Arch Linux.
 
 ### Compiling From Source
 
-Run `make` to compile, `sudo make install` to install, and `sudo make uninstall`
-to uninstall.
+Run `meson build` to configure, `ninja -C build install` to install, and `ninja
+-C build uninstall` to uninstall. Depending on your configuration, you may need
+to elevate your perimssions to install.
 
 Dependencies:
 
 * meson
+* ninja
 * git
 * gtk3
 * gobject-introspection
